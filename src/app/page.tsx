@@ -189,19 +189,28 @@ export default function Home() {
           volume: { percent: 0 }
         };
       } else {
+        // Type assertion để TypeScript biết changes có cấu trúc mong muốn
+        const changes = data.changes as {
+          price?: { percent?: number };
+          volume?: { percent?: number };
+        };
+        
         // Kiểm tra và sửa chữa cấu trúc price nếu cần
-        if (!data.changes.price) {
-          data.changes.price = { percent: 0 };
-        } else if (data.changes.price.percent === undefined || data.changes.price.percent === null) {
-          data.changes.price.percent = 0;
+        if (!changes.price) {
+          changes.price = { percent: 0 };
+        } else if (changes.price.percent === undefined || changes.price.percent === null) {
+          changes.price.percent = 0;
         }
         
         // Kiểm tra và sửa chữa cấu trúc volume nếu cần
-        if (!data.changes.volume) {
-          data.changes.volume = { percent: 0 };
-        } else if (data.changes.volume.percent === undefined || data.changes.volume.percent === null) {
-          data.changes.volume.percent = 0;
+        if (!changes.volume) {
+          changes.volume = { percent: 0 };
+        } else if (changes.volume.percent === undefined || changes.volume.percent === null) {
+          changes.volume.percent = 0;
         }
+        
+        // Gán lại data.changes
+        data.changes = changes;
       }
       
       // Đảm bảo timestamp tồn tại
