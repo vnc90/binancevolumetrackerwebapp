@@ -44,7 +44,7 @@ export default function Home() {
   const [minVolume, setMinVolume] = useState<number>(10000);
   const [alertThreshold, setAlertThreshold] = useState<number>(2.5);
   const [alertHistory, setAlertHistory] = useState<AlertData[]>([]);
-  const [userInteracted, setUserInteracted] = useState<boolean>(true); // Auto set to true since we removed user interaction detection
+  const userInteracted = true; // Always true since we removed user interaction detection
   const [showPopupWarning, setShowPopupWarning] = useState<boolean>(false);
   // Lưu trữ thời gian cảnh báo gần nhất cho mỗi coin
   const [lastAlertTimes, setLastAlertTimes] = useState<AlertTimeMap>({});
@@ -52,7 +52,6 @@ export default function Home() {
   const pendingChartsRef = useRef<string[]>([]);
   const lastCleanupRef = useRef<number>(Date.now());
   
-
   // Countdown timer cho lần cập nhật tiếp theo
   useEffect(() => {
     // Chỉ bắt đầu đếm ngược khi đã có dữ liệu (lastUpdate khác "Chưa có dữ liệu")
@@ -141,7 +140,7 @@ export default function Home() {
         }
         return false;
       }
-    } catch (error) {
+    } catch {
       return false;
     }
   };
@@ -168,7 +167,7 @@ export default function Home() {
   }, []);
 
   // Kiểm tra dữ liệu hợp lệ trước khi thêm vào state
-  function isValidCoinData(data: any): boolean {
+  function isValidCoinData(data: Record<string, unknown>): boolean {
     try {
       // Kiểm tra các trường bắt buộc
       if (!data || typeof data !== 'object') return false;
@@ -211,7 +210,7 @@ export default function Home() {
       }
       
       return true;
-    } catch (error) {
+    } catch {
       return false;
     }
   }
@@ -236,9 +235,40 @@ export default function Home() {
       }
       
       return false;
-    } catch (error) {
+    } catch {
       return false;
     }
+  }
+
+  // Hàm làm sạch dữ liệu cũ
+  function cleanupExpiredData() {
+    const now = Date.now();
+    // Chỉ làm sạch dữ liệu mỗi 30 giây
+    if (now - lastCleanupRef.current < 30000) {
+      return;
+    }
+    
+    // Cập nhật thời gian làm sạch gần nhất
+    lastCleanupRef.current = now;
+    
+    setAlerts(prev => {
+      // Không thay đổi gì nếu không có dữ liệu
+      if (prev.size === 0) return prev;
+      
+      const newAlerts = new Map(prev);
+      let hasDeleted = false;
+      
+      // Xóa dữ liệu cũ
+      for (const [symbol, coinData] of newAlerts.entries()) {
+        if (now - coinData.timestamp > DATA_EXPIRY_TIME) {
+          newAlerts.delete(symbol);
+          hasDeleted = true;
+        }
+      }
+      
+      // Chỉ trả về Map mới nếu có thay đổi
+      return hasDeleted ? newAlerts : prev;
+    });
   }
 
   // Hàm xử lý dữ liệu coin mới
@@ -254,7 +284,6 @@ export default function Home() {
       
       // Kiểm tra cảnh báo
       const volumeChangePercent = data.changes.volume.percent;
-      const volumeChangeTimes = volumeChangePercent / 100;
       
       const shouldAlert = shouldTriggerAlert(data.symbol, volumeChangePercent);
       
@@ -294,7 +323,7 @@ export default function Home() {
             .sort((a, b) => (b[1].timestamp || 0) - (a[1].timestamp || 0))
         );
       });
-    } catch (error) {
+    } catch {
       // Xử lý lỗi nếu có
     }
   }
@@ -310,7 +339,7 @@ export default function Home() {
         setAlerts(new Map());
       };
       
-      socketRef.current.onerror = function(error) {
+      socketRef.current.onerror = function() {
         setStatus('disconnected');
       };
       
@@ -330,15 +359,16 @@ export default function Home() {
             updateLastUpdate();
             handleCoinData(data);
           }
-        } catch (error) {
+        } catch {
           // Xử lý lỗi nếu có
         }
       };
-    } catch (error) {
+    } catch {
       setStatus('disconnected');
     }
   }
 
+  // Sửa lỗi useEffect missing dependency
   useEffect(() => {
     // Kết nối khi trang được tải
     connect();
@@ -349,6 +379,7 @@ export default function Home() {
         socketRef.current.close();
       }
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleReconnect = () => {
@@ -397,7 +428,10 @@ export default function Home() {
 
   // Lọc các alerts có volume thấp hơn giá trị minVolume
   const filteredAlerts = new Map(
-    Array.from(alerts.entries()).filter(([_, data]) => data.currentVolume >= minVolume)
+    Array.from(alerts.entries()).filter(([symbol]) => {
+      const data = alerts.get(symbol);
+      return data && data.currentVolume >= minVolume;
+    })
   );
 
   // Lọc lịch sử cảnh báo dựa trên giá trị minVolume và ngưỡng hiện tại
@@ -409,44 +443,6 @@ export default function Home() {
     const volumeChangeTimes = alert.changes.volume.percent / 100;
     return volumeChangeTimes >= alertThreshold;
   });
-
-  // Format countdown từ giây sang phút:giây
-  const formatCountdown = (seconds: number): string => {
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    return `${minutes}:${remainingSeconds < 10 ? '0' : ''}${remainingSeconds}`;
-  };
-
-  // Hàm làm sạch dữ liệu cũ
-  function cleanupExpiredData() {
-    const now = Date.now();
-    // Chỉ làm sạch dữ liệu mỗi 30 giây
-    if (now - lastCleanupRef.current < 30000) {
-      return;
-    }
-    
-    // Cập nhật thời gian làm sạch gần nhất
-    lastCleanupRef.current = now;
-    
-    setAlerts(prev => {
-      // Không thay đổi gì nếu không có dữ liệu
-      if (prev.size === 0) return prev;
-      
-      const newAlerts = new Map(prev);
-      let hasDeleted = false;
-      
-      // Xóa dữ liệu cũ
-      for (const [symbol, coinData] of newAlerts.entries()) {
-        if (now - coinData.timestamp > DATA_EXPIRY_TIME) {
-          newAlerts.delete(symbol);
-          hasDeleted = true;
-        }
-      }
-      
-      // Chỉ trả về Map mới nếu có thay đổi
-      return hasDeleted ? newAlerts : prev;
-    });
-  }
 
   // Effect để tự động làm sạch dữ liệu cũ
   useEffect(() => {
@@ -465,6 +461,13 @@ export default function Home() {
     
     return () => clearInterval(cleanupInterval);
   }, [status]);
+
+  // Format countdown từ giây sang phút:giây
+  const formatCountdown = (seconds: number): string => {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes}:${remainingSeconds < 10 ? '0' : ''}${remainingSeconds}`;
+  };
 
   return (
     <div className="p-5 bg-gray-100 min-h-screen">
@@ -596,16 +599,16 @@ export default function Home() {
               </div>
               
               {/* Hiển thị thông tin về số lượng cảnh báo đang hiển thị
-              <div className="text-xs text-gray-500 mb-2 flex flex-wrap items-center gap-2">
-                <div>
-                  Cảnh báo: <span className="font-semibold">{filteredAlertHistory.length}</span>/{alertHistory.length}
-                </div>
-                {alertHistory.length > filteredAlertHistory.length && (
-                  <div className="text-xs text-gray-400">
-                    (Đã lọc {alertHistory.length - filteredAlertHistory.length} cảnh báo dưới ngưỡng {alertThreshold}x)
+                <div className="text-xs text-gray-500 mb-2 flex flex-wrap items-center gap-2">
+                  <div>
+                    Cảnh báo: <span className="font-semibold">{filteredAlertHistory.length}</span>/{alertHistory.length}
                   </div>
-                )}
-              </div> */}
+                  {alertHistory.length > filteredAlertHistory.length && (
+                    <div className="text-xs text-gray-400">
+                      (Đã lọc {alertHistory.length - filteredAlertHistory.length} cảnh báo dưới ngưỡng {alertThreshold}x)
+                    </div>
+                  )}
+                </div> */}
               
               {/* Bảng lịch sử cảnh báo */}
               <div className="h-[calc(100vh-250px)]">
@@ -614,13 +617,13 @@ export default function Home() {
             </div>
           </div>
         </div>
-      </div>
-      <div className="text-xs text-gray-500 mt-1 flex flex-wrap items-center gap-4">
-        <div className="flex justify-center w-full pt-1">
-          {/* copyright and author name, team name */}
-          <span >© 2025 <a href="https://www.facebook.com/vungocchuong" className="text-blue-500">VNC</a> - MetaBot Team</span>
+        <div className="text-xs text-gray-500 mt-1 flex flex-wrap items-center gap-4">
+          <div className="flex justify-center w-full pt-1">
+            {/* copyright and author name, team name */}
+            <span >© 2025 <a href="https://www.facebook.com/vungocchuong" className="text-blue-500">VNC</a> - MetaBot Team</span>
+          </div>
+          
         </div>
-        
       </div>
     </div>
   );

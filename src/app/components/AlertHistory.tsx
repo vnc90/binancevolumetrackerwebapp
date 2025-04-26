@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import Image from 'next/image';
 
 type CoinData = {
@@ -36,13 +35,13 @@ export default function AlertHistory({ alerts, openTradingChart }: AlertHistoryP
     try {
       const date = new Date(timestamp);
       return date.toLocaleTimeString();
-    } catch (error) {
+    } catch {
       return '--';
     }
   };
 
   // Hàm an toàn để định dạng số với toFixed
-  const safeToFixed = (value: any, digits: number = 2): string => {
+  const safeToFixed = (value: number | string | null | undefined, digits: number = 2): string => {
     // Kiểm tra nếu giá trị là null, undefined hoặc không phải số
     if (value === null || value === undefined || isNaN(Number(value))) {
       return '--';
@@ -62,14 +61,13 @@ export default function AlertHistory({ alerts, openTradingChart }: AlertHistoryP
       
       // Loại bỏ các số 0 thừa ở cuối
       return formatted.replace(/\.?0+$/, '');
-    } catch (error) {
-      console.error('Lỗi khi định dạng số:', error, value);
+    } catch {
       return '--';
     }
   };
 
   // Hàm định dạng volume theo dạng viết tắt (K, M, B)
-  const formatVolume = (value: any): string => {
+  const formatVolume = (value: number | string | null | undefined): string => {
     if (value === null || value === undefined || isNaN(Number(value))) {
       return '--';
     }
@@ -90,14 +88,13 @@ export default function AlertHistory({ alerts, openTradingChart }: AlertHistoryP
         // Số nhỏ
         return safeToFixed(num, 2);
       }
-    } catch (error) {
-      console.error('Lỗi khi định dạng volume:', error, value);
+    } catch {
       return '--';
     }
   };
 
   return (
-    <div className="overflow-y-auto h-full">
+    <div className="overflow-y-auto max-h-[calc(100vh-400px)] h-full">
       {alerts.length === 0 ? (
         <div className="text-center text-gray-500 italic py-4">
           <div className="flex flex-col items-center justify-center space-y-2">
@@ -121,7 +118,7 @@ export default function AlertHistory({ alerts, openTradingChart }: AlertHistoryP
       ) : (
         <>
           <ul className="space-y-2 pb-1">
-            {alerts.map((alert, index) => (
+            {alerts.map((alert) => (
               <li 
                 key={`${alert.symbol}-${alert.alertTime}`} 
                 className="border border-gray-200 rounded-lg p-2.5 bg-white hover:bg-gray-50 shadow-sm"
