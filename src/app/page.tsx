@@ -3,7 +3,6 @@
 import { useEffect, useState, useRef } from 'react';
 import VolumeTable from './components/VolumeTable';
 import AlertHistory from './components/AlertHistory';
-
 type CoinData = {
   symbol: string;
   baseAsset: string;
@@ -338,10 +337,11 @@ export default function Home() {
   }
 
   function connect() {
+    console.log("kết nối đến wss://trackervolume.vnctools.com:9443");
     // Kết nối đến WebSocket server
     try {
-      socketRef.current = new WebSocket('ws://113.160.154.85:9090');
-      
+      socketRef.current = new WebSocket('wss://trackervolume.vnctools.com:9443');
+      console.log("socketRef.current", socketRef.current);
       socketRef.current.onopen = function() {
         setStatus('connected');
         // Reset dữ liệu khi kết nối mới
@@ -358,7 +358,7 @@ export default function Home() {
       
       socketRef.current.onmessage = function(event) {
         try {
-          const data = JSON.parse(event.data);
+          const data = JSON.parse(event.data as string);
           
           if (data.type === 'connection') {
             return;
@@ -466,7 +466,7 @@ export default function Home() {
     // Thiết lập một interval để kiểm tra và xóa dữ liệu cũ mỗi 30 giây
     const cleanupInterval = setInterval(() => {
       cleanupExpiredData();
-    }, 30000); // Kiểm tra mỗi 30 giây
+    }, 10000); // Kiểm tra mỗi 10 giây
     
     return () => clearInterval(cleanupInterval);
   }, [status]);
