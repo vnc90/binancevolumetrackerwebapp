@@ -94,7 +94,7 @@ export default function AlertHistory({ alerts, openTradingChart }: AlertHistoryP
   };
 
   return (
-    <div className="overflow-y-auto max-h-[calc(100vh-400px)] h-full">
+    <div className="overflow-y-auto h-full">
       {alerts.length === 0 ? (
         <div className="text-center text-gray-500 italic py-4">
           <div className="flex flex-col items-center justify-center space-y-2">
