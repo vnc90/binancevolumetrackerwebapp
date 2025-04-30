@@ -3,27 +3,7 @@
 import { useEffect, useState, useRef } from 'react';
 import VolumeTable from './components/VolumeTable';
 import AlertHistory from './components/AlertHistory';
-type CoinData = {
-  symbol: string;
-  baseAsset: string;
-  fullName?: string;
-  logoUrl?: string;
-  currentPrice: number;
-  currentVolume: number;
-  changes: {
-    price: {
-      percent: number;
-    };
-    volume: {
-      percent: number;
-    };
-  };
-  timestamp: number;
-};
-
-type AlertData = CoinData & {
-  alertTime: number;
-};
+import { CoinData, AlertData } from './types';
 
 // Theo dõi thời gian cảnh báo gần nhất của mỗi coin
 type AlertTimeMap = {
@@ -42,6 +22,8 @@ export default function Home() {
   const [alerts, setAlerts] = useState<Map<string, CoinData>>(new Map());
   const [minVolume, setMinVolume] = useState<number>(10000);
   const [alertThreshold, setAlertThreshold] = useState<number>(2.5);
+  const [showIncrease, setShowIncrease] = useState<boolean>(true);
+  const [showDecrease, setShowDecrease] = useState<boolean>(true);
   const [alertHistory, setAlertHistory] = useState<AlertData[]>([]);
   const userInteracted = true; // Always true since we removed user interaction detection
   const [showPopupWarning, setShowPopupWarning] = useState<boolean>(false);
@@ -87,19 +69,31 @@ export default function Home() {
 
   // Xử lý thay đổi giá trị volume tối thiểu
   const handleMinVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = parseInt(e.target.value);
-    if (!isNaN(value) && value >= 0) {
-      setMinVolume(value);
-      localStorage.setItem('minVolume', value.toString());
+    const value = e.target.value;
+    // Cho phép input rỗng
+    if (value === '') {
+      setMinVolume(0);
+      return;
+    }
+    const numValue = parseInt(value);
+    if (!isNaN(numValue) && numValue >= 0) {
+      setMinVolume(numValue);
+      localStorage.setItem('minVolume', numValue.toString());
     }
   };
 
   // Xử lý thay đổi ngưỡng cảnh báo
   const handleAlertThresholdChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = parseFloat(e.target.value);
-    if (!isNaN(value) && value >= 0) {
-      setAlertThreshold(value);
-      localStorage.setItem('alertThreshold', value.toString());
+    const value = e.target.value;
+    // Cho phép input rỗng
+    if (value === '') {
+      setAlertThreshold(0);
+      return;
+    }
+    const numValue = parseFloat(value);
+    if (!isNaN(numValue) && numValue >= 0) {
+      setAlertThreshold(numValue);
+      localStorage.setItem('alertThreshold', numValue.toString());
     }
   };
 
@@ -144,6 +138,43 @@ export default function Home() {
     }
   };
 
+  // Thêm hàm xử lý thay đổi filter
+  const handleFilterChange = (type: 'increase' | 'decrease') => {
+    if (type === 'increase') {
+      // Nếu đang bỏ chọn tăng và giảm đã được chọn
+      if (showIncrease && showDecrease) {
+        setShowIncrease(false);
+        localStorage.setItem('showIncrease', 'false');
+      } 
+      // Nếu đang bỏ chọn tăng và giảm chưa được chọn
+      else if (showIncrease && !showDecrease) {
+        // Không cho phép bỏ chọn cả hai
+        return;
+      }
+      // Nếu đang chọn tăng
+      else {
+        setShowIncrease(true);
+        localStorage.setItem('showIncrease', 'true');
+      }
+    } else {
+      // Nếu đang bỏ chọn giảm và tăng đã được chọn
+      if (showDecrease && showIncrease) {
+        setShowDecrease(false);
+        localStorage.setItem('showDecrease', 'false');
+      }
+      // Nếu đang bỏ chọn giảm và tăng chưa được chọn
+      else if (showDecrease && !showIncrease) {
+        // Không cho phép bỏ chọn cả hai
+        return;
+      }
+      // Nếu đang chọn giảm
+      else {
+        setShowDecrease(true);
+        localStorage.setItem('showDecrease', 'true');
+      }
+    }
+  };
+
   // Khôi phục cài đặt từ localStorage khi component mount
   useEffect(() => {
     // Khôi phục giá trị volume tối thiểu
@@ -162,6 +193,16 @@ export default function Home() {
       if (!isNaN(value) && value >= 0) {
         setAlertThreshold(value);
       }
+    }
+
+    // Khôi phục trạng thái filter
+    const savedShowIncrease = localStorage.getItem('showIncrease');
+    const savedShowDecrease = localStorage.getItem('showDecrease');
+    
+    // Chỉ khôi phục nếu cả hai giá trị đều tồn tại
+    if (savedShowIncrease !== null && savedShowDecrease !== null) {
+      setShowIncrease(savedShowIncrease === 'true');
+      setShowDecrease(savedShowDecrease === 'true');
     }
   }, []);
 
@@ -252,7 +293,7 @@ export default function Home() {
   function cleanupExpiredData() {
     const now = Date.now();
     // Chỉ làm sạch dữ liệu mỗi 30 giây
-    if (now - lastCleanupRef.current < 30000) {
+    if (now - lastCleanupRef.current < 5000) {
       return;
     }
     
@@ -286,7 +327,9 @@ export default function Home() {
       if (!isValidCoinData(data)) {
         return;
       }
-      
+      if (data.symbol.includes('USDC') || data.symbol.includes('FDUSD') || data.symbol.includes('TUSD') || data.symbol.includes('WBTC')) {
+        return;
+      }
       // Đảm bảo timestamp luôn được cập nhật thành thời gian hiện tại
       data.timestamp = Date.now();
       
@@ -435,11 +478,21 @@ export default function Home() {
     setLastAlertTimes(newLastAlertTimes);
   };
 
-  // Lọc các alerts có volume thấp hơn giá trị minVolume
+  // Lọc các alerts có volume thấp hơn giá trị minVolume và theo filter tăng/giảm
   const filteredAlerts = new Map(
     Array.from(alerts.entries()).filter(([symbol]) => {
       const data = alerts.get(symbol);
-      return data && data.currentVolume >= minVolume;
+      if (!data) return false;
+      
+      // Lọc theo volume
+      if (data.currentVolume < minVolume) return false;
+      
+      // Lọc theo tăng/giảm
+      const priceChange = data.changes.price.percent;
+      if (priceChange > 0 && !showIncrease) return false;
+      if (priceChange < 0 && !showDecrease) return false;
+      
+      return true;
     })
   );
 
@@ -466,7 +519,7 @@ export default function Home() {
     // Thiết lập một interval để kiểm tra và xóa dữ liệu cũ mỗi 30 giây
     const cleanupInterval = setInterval(() => {
       cleanupExpiredData();
-    }, 10000); // Kiểm tra mỗi 10 giây
+    }, 5000); // Kiểm tra mỗi 10 giây
     
     return () => clearInterval(cleanupInterval);
   }, [status]);
@@ -538,31 +591,58 @@ export default function Home() {
                 
                 <div className="flex flex-wrap items-center gap-4">
                   <div className="flex items-center space-x-2">
-                    <label htmlFor="minVolume" className="text-sm font-medium text-gray-700">
+                    <label className="text-sm font-medium text-gray-800">
+                     Filter Giá:
+                    </label>
+                    <div className="flex items-center space-x-2">
+                      <label className="inline-flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={showIncrease}
+                          onChange={() => handleFilterChange('increase')}
+                          className="form-checkbox h-4 w-4 text-[#f0b90b] rounded border-gray-300 focus:ring-[#f0b90b]"
+                        />
+                        <span className="ml-2 text-sm text-gray-800">Tăng</span>
+                      </label>
+                      <label className="inline-flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={showDecrease}
+                          onChange={() => handleFilterChange('decrease')}
+                          className="form-checkbox h-4 w-4 text-[#f0b90b] rounded border-gray-300 focus:ring-[#f0b90b]"
+                        />
+                        <span className="ml-2 text-sm text-gray-800">Giảm</span>
+                      </label>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center space-x-2">
+                    <label htmlFor="minVolume" className="text-sm font-medium text-gray-800">
                       Volume tối thiểu:
                     </label>
                     <input
                       id="minVolume"
-                      type="number"
-                      min="0"
-                      value={minVolume}
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      value={minVolume || ''}
                       onChange={handleMinVolumeChange}
-                      className="border text-xs border-gray-300 rounded px-3 py-1 w-22 focus:outline-none focus:ring-2 focus:ring-[#f0b90b] focus:border-transparent"
+                      className="border border-gray-300 text-sm text-gray-800 rounded px-3 py-1.5 w-22 focus:outline-none focus:ring-2 focus:ring-[#f0b90b] focus:border-transparent bg-white"
                     />
                   </div>
                   
                   <div className="flex items-center space-x-2">
-                    <label htmlFor="alertThreshold" className="text-sm font-medium text-gray-700">
+                    <label htmlFor="alertThreshold" className="text-sm font-medium text-gray-800">
                       Ngưỡng cảnh báo (x lần):
                     </label>
                     <input
                       id="alertThreshold"
-                      type="number"
-                      min="0"
-                      step="0.1"
-                      value={alertThreshold}
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*\.?[0-9]*"
+                      value={alertThreshold || ''}
                       onChange={handleAlertThresholdChange}
-                      className="border text-xs border-gray-300 rounded px-3 py-1 w-16 focus:outline-none focus:ring-2 focus:ring-[#f0b90b] focus:border-transparent"
+                      className="border border-gray-300 text-sm text-gray-800 rounded px-3 py-1.5 w-16 focus:outline-none focus:ring-2 focus:ring-[#f0b90b] focus:border-transparent bg-white"
                     />
                   </div>
                 </div>
@@ -593,14 +673,14 @@ export default function Home() {
                   <button
                     hidden={true}
                     onClick={handleClearBelowThreshold}
-                    className="text-xs bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium py-1 px-2 rounded"
+                    className="text-xs bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-1 px-2 rounded"
                     title="Xóa cảnh báo dưới ngưỡng hiện tại"
                   >
                     Lọc ngưỡng
                   </button>
                   <button
                     onClick={handleClearAlertHistory}
-                    className="text-xs bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium py-1 px-2 rounded"
+                    className="text-xs bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-1 px-2 rounded"
                   >
                     Xóa lịch sử
                   </button>
