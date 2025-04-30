@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import VolumeTable from './components/VolumeTable';
 import AlertHistory from './components/AlertHistory';
 import { CoinData, AlertData } from './types';
@@ -32,6 +32,37 @@ export default function Home() {
   const socketRef = useRef<WebSocket | null>(null);
   const pendingChartsRef = useRef<string[]>([]);
   const lastCleanupRef = useRef<number>(Date.now());
+  
+   // Khôi phục cài đặt từ localStorage khi component mount
+   useEffect(() => {
+    // Khôi phục giá trị volume tối thiểu
+    const savedMinVolume = localStorage.getItem('minVolume');
+    if (savedMinVolume) {
+      const value = parseInt(savedMinVolume);
+      if (!isNaN(value) && value >= 0) {
+        setMinVolume(value);
+      }
+    }
+
+    // Khôi phục ngưỡng cảnh báo
+    const savedAlertThreshold = localStorage.getItem('alertThreshold');
+    if (savedAlertThreshold) {
+      const value = parseFloat(savedAlertThreshold);
+      if (!isNaN(value) && value >= 0) {
+        setAlertThreshold(value);
+      }
+    }
+
+    // Khôi phục trạng thái filter
+    const savedShowIncrease = localStorage.getItem('showIncrease');
+    const savedShowDecrease = localStorage.getItem('showDecrease');
+    
+    // Chỉ khôi phục nếu cả hai giá trị đều tồn tại
+    if (savedShowIncrease !== null && savedShowDecrease !== null) {
+      setShowIncrease(savedShowIncrease === 'true');
+      setShowDecrease(savedShowDecrease === 'true');
+    }
+  }, []);
   
   // Countdown timer cho lần cập nhật tiếp theo
   useEffect(() => {
@@ -72,7 +103,9 @@ export default function Home() {
     const value = e.target.value;
     // Cho phép input rỗng
     if (value === '') {
-      setMinVolume(0);
+      const newValue = 0;
+      setMinVolume(newValue);
+      localStorage.setItem('minVolume', newValue.toString());
       return;
     }
     const numValue = parseInt(value);
@@ -87,7 +120,9 @@ export default function Home() {
     const value = e.target.value;
     // Cho phép input rỗng
     if (value === '') {
-      setAlertThreshold(0);
+      const newValue = 0;
+      setAlertThreshold(newValue);
+      localStorage.setItem('alertThreshold', newValue.toString());
       return;
     }
     const numValue = parseFloat(value);
@@ -175,36 +210,7 @@ export default function Home() {
     }
   };
 
-  // Khôi phục cài đặt từ localStorage khi component mount
-  useEffect(() => {
-    // Khôi phục giá trị volume tối thiểu
-    const savedMinVolume = localStorage.getItem('minVolume');
-    if (savedMinVolume) {
-      const value = parseInt(savedMinVolume);
-      if (!isNaN(value) && value >= 0) {
-        setMinVolume(value);
-      }
-    }
-
-    // Khôi phục ngưỡng cảnh báo
-    const savedAlertThreshold = localStorage.getItem('alertThreshold');
-    if (savedAlertThreshold) {
-      const value = parseFloat(savedAlertThreshold);
-      if (!isNaN(value) && value >= 0) {
-        setAlertThreshold(value);
-      }
-    }
-
-    // Khôi phục trạng thái filter
-    const savedShowIncrease = localStorage.getItem('showIncrease');
-    const savedShowDecrease = localStorage.getItem('showDecrease');
-    
-    // Chỉ khôi phục nếu cả hai giá trị đều tồn tại
-    if (savedShowIncrease !== null && savedShowDecrease !== null) {
-      setShowIncrease(savedShowIncrease === 'true');
-      setShowDecrease(savedShowDecrease === 'true');
-    }
-  }, []);
+ 
 
   // Kiểm tra dữ liệu hợp lệ trước khi thêm vào state
   function isValidCoinData(data: Record<string, unknown>): boolean {
@@ -264,30 +270,6 @@ export default function Home() {
     }
   }
 
-  // Kiểm tra xem coin có nên được cảnh báo không
-  function shouldTriggerAlert(symbol: string, volumeChangePercent: number): boolean {
-    try {
-      // Chuyển đổi phần trăm thành số lần (5000% = 50 lần)
-      const volumeChangeTimes = volumeChangePercent / 100;
-      
-      // Nếu không đạt ngưỡng cảnh báo, không cần cảnh báo
-      if (volumeChangeTimes < alertThreshold) {
-        return false;
-      }
-      
-      const now = Date.now();
-      const lastAlertTime = lastAlertTimes[symbol] || 0;
-      
-      // Nếu đã qua khoảng thời gian tối thiểu từ lần cảnh báo trước, hoặc chưa từng cảnh báo
-      if ((now - lastAlertTime) >= MIN_ALERT_INTERVAL) {
-        return true;
-      }
-      
-      return false;
-    } catch {
-      return false;
-    }
-  }
 
   // Hàm làm sạch dữ liệu cũ
   function cleanupExpiredData() {
@@ -321,7 +303,7 @@ export default function Home() {
   }
 
   // Hàm xử lý dữ liệu coin mới
-  function handleCoinData(data: CoinData) {
+  const handleCoinData = useCallback((data: CoinData) => {
     try {
       // Kiểm tra dữ liệu trước khi thêm vào state
       if (!isValidCoinData(data)) {
@@ -336,10 +318,15 @@ export default function Home() {
       // Kiểm tra cảnh báo
       const volumeChangePercent = data.changes.volume.percent;
       
-      const shouldAlert = shouldTriggerAlert(data.symbol, volumeChangePercent);
+      // Chuyển đổi phần trăm thành số lần (5000% = 50 lần)
+      const volumeChangeTimes = volumeChangePercent / 100;
       
+      // Lấy giá trị mới nhất từ localStorage
+      const currentMinVolume = parseInt(localStorage.getItem('minVolume') || '10000');
+      const currentAlertThreshold = parseFloat(localStorage.getItem('alertThreshold') || '2.5');
+            
       // Nếu cần cảnh báo
-      if (shouldAlert) {
+      if (volumeChangeTimes >= currentAlertThreshold && data.currentVolume >= currentMinVolume) {
         // Cập nhật thời gian cảnh báo gần nhất
         const now = Date.now();
         setLastAlertTimes(prev => ({
@@ -377,7 +364,7 @@ export default function Home() {
     } catch {
       // Xử lý lỗi nếu có
     }
-  }
+  }, [lastAlertTimes]);
 
   function connect() {
     console.log("kết nối đến wss://trackervolume.vnctools.com:9443");
@@ -456,27 +443,6 @@ export default function Home() {
     setLastAlertTimes({});
   };
 
-  // Xóa các cảnh báo dưới ngưỡng hiện tại
-  const handleClearBelowThreshold = () => {
-    // Lọc giữ lại các cảnh báo có thay đổi volume >= ngưỡng hiện tại
-    const filteredHistory = alertHistory.filter(alert => {
-      const volumeChangeTimes = alert.changes.volume.percent / 100;
-      return volumeChangeTimes >= alertThreshold;
-    });
-    
-    // Cập nhật lịch sử cảnh báo chỉ với các cảnh báo đạt ngưỡng
-    setAlertHistory(filteredHistory);
-    
-    // Cập nhật lastAlertTimes để chỉ giữ lại các coins đạt ngưỡng
-    const newLastAlertTimes = {...lastAlertTimes};
-    for (const symbol in newLastAlertTimes) {
-      const coin = alertHistory.find(alert => alert.symbol === symbol);
-      if (!coin || coin.changes.volume.percent / 100 < alertThreshold) {
-        delete newLastAlertTimes[symbol];
-      }
-    }
-    setLastAlertTimes(newLastAlertTimes);
-  };
 
   // Lọc các alerts có volume thấp hơn giá trị minVolume và theo filter tăng/giảm
   const filteredAlerts = new Map(
@@ -496,15 +462,8 @@ export default function Home() {
     })
   );
 
-  // Lọc lịch sử cảnh báo dựa trên giá trị minVolume và ngưỡng hiện tại
-  const filteredAlertHistory = alertHistory.filter(alert => {
-    // Lọc theo volume tối thiểu
-    if (alert.currentVolume < minVolume) return false;
-    
-    // Lọc theo ngưỡng thay đổi volume hiện tại
-    const volumeChangeTimes = alert.changes.volume.percent / 100;
-    return volumeChangeTimes >= alertThreshold;
-  });
+  // Xóa phần lọc lịch sử cảnh báo vì chúng ta đã lưu trực tiếp
+  const filteredAlertHistory = alertHistory;
 
   // Effect để tự động làm sạch dữ liệu cũ
   useEffect(() => {
@@ -670,14 +629,7 @@ export default function Home() {
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-lg font-bold text-gray-800">Lịch sử cảnh báo</h2>
                 <div className="flex items-center gap-2">
-                  <button
-                    hidden={true}
-                    onClick={handleClearBelowThreshold}
-                    className="text-xs bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-1 px-2 rounded"
-                    title="Xóa cảnh báo dưới ngưỡng hiện tại"
-                  >
-                    Lọc ngưỡng
-                  </button>
+                  
                   <button
                     onClick={handleClearAlertHistory}
                     className="text-xs bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-1 px-2 rounded"
@@ -687,21 +639,11 @@ export default function Home() {
                 </div>
               </div>
               
-              {/* Hiển thị thông tin về số lượng cảnh báo đang hiển thị
-                <div className="text-xs text-gray-500 mb-2 flex flex-wrap items-center gap-2">
-                  <div>
-                    Cảnh báo: <span className="font-semibold">{filteredAlertHistory.length}</span>/{alertHistory.length}
-                  </div>
-                  {alertHistory.length > filteredAlertHistory.length && (
-                    <div className="text-xs text-gray-400">
-                      (Đã lọc {alertHistory.length - filteredAlertHistory.length} cảnh báo dưới ngưỡng {alertThreshold}x)
-                    </div>
-                  )}
-                </div> */}
+
               
               {/* Bảng lịch sử cảnh báo */}
               <div className="h-[calc(100vh-250px)]">
-                <AlertHistory alerts={filteredAlertHistory} openTradingChart={openTradingChart} />
+                <AlertHistory alerts={alertHistory} openTradingChart={openTradingChart} />
               </div>
             </div>
           </div>
