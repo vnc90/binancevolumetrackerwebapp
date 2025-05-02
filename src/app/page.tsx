@@ -305,7 +305,7 @@ export default function Home() {
   // Hàm xử lý dữ liệu coin mới
   const handleCoinData = useCallback((data: CoinData) => {
     try {
-      console.log("data", data);
+     
       // Kiểm tra dữ liệu trước khi thêm vào state
       if (!isValidCoinData(data)) {
         return;
