@@ -9,7 +9,7 @@ type VolumeTableProps = {
 };
 
 // Các trường có thể sort
-type SortableField = keyof CoinData | 'priceChange' | 'volumeChange' | 'volMarketCapRatio';
+type SortableField = keyof CoinData | 'priceChange' | 'volumeChange' | 'volMarketCapRatio' | 'volAvg10day' | 'volRatioToAvg';
 type SortDirection = 'asc' | 'desc';
 
 type SortConfig = {
@@ -152,6 +152,11 @@ export default function VolumeTable({ alerts }: VolumeTableProps) {
           return safeGetChangePercent(data, 'volume');
         case 'volMarketCapRatio':
           return data.marketCap ? (data.currentVolume / data.marketCap) * 100 : 0;
+        case 'volAvg10day':
+          return data.totalVolume ? data.totalVolume.value / ((data.totalVolume.endTime - data.totalVolume.startTime) / 1000 / 180) : 0;
+        case 'volRatioToAvg':
+          const avgVol = data.totalVolume ? data.totalVolume.value / ((data.totalVolume.endTime - data.totalVolume.startTime) / 1000 / 180) : 0;
+          return avgVol ? data.currentVolume / avgVol : 0;
         default:
           return 0;
       }
@@ -193,15 +198,16 @@ export default function VolumeTable({ alerts }: VolumeTableProps) {
   // Định nghĩa độ rộng cố định cho các cột
   const columnWidths = {
     logo: "w-[50px]",
-    symbol: "w-[80px]",
-    fullName: "w-[150px]",
+    coinInfo: "w-[120px]",
     price: "w-[120px]",
-    priceChange: "w-[140px]",
+    priceChange: "w-[120px]",
     volume: "w-[100px]",
     volumeChange: "w-[120px]",
     volMarketCapRatio: "w-[120px]",
+    volAvg10day: "w-[120px]",
+    volRatioToAvg: "w-[120px]",
     action: "w-[80px]",
-    marketCap: "w-[130px]",
+    marketCap: "w-[120px]",
   };
 
   // Component hiển thị icon sort
@@ -243,11 +249,10 @@ export default function VolumeTable({ alerts }: VolumeTableProps) {
           <thead>
             <tr>
               <th className={`p-3 text-left border-b border-gray-200 ${columnWidths.logo}`}></th>
-              <th className={`p-3 text-left border-b border-gray-200 font-semibold text-gray-800 ${columnWidths.symbol}`}>Coin</th>
-              <th className={`p-3 text-left border-b border-gray-200 font-semibold text-gray-800 ${columnWidths.fullName}`}>Name</th>
+              <th className={`p-3 text-left border-b border-gray-200 font-semibold text-gray-800 ${columnWidths.coinInfo}`}>Coin</th>
               <th className={`p-3 text-left border-b border-gray-200 font-semibold text-gray-800 ${columnWidths.marketCap} cursor-pointer hover:bg-gray-200`} 
                   onClick={() => handleSort('marketCap')}>
-                Market Cap
+                MCap
                 <SortIcon field="marketCap" />
               </th>
               <th className={`p-3 text-left border-b border-gray-200 font-semibold text-gray-800 ${columnWidths.price} cursor-pointer hover:bg-gray-200`} 
@@ -257,7 +262,7 @@ export default function VolumeTable({ alerts }: VolumeTableProps) {
               </th>
               <th className={`p-3 text-left border-b border-gray-200 font-semibold text-gray-800 ${columnWidths.priceChange} cursor-pointer hover:bg-gray-200`} 
                   onClick={() => handleSort('priceChange')}>
-                Price Change
+                P Change
                 <SortIcon field="priceChange" />
               </th>
               <th className={`p-3 text-left border-b border-gray-200 font-semibold text-gray-800 ${columnWidths.volume} cursor-pointer hover:bg-gray-200`} 
@@ -265,15 +270,25 @@ export default function VolumeTable({ alerts }: VolumeTableProps) {
                 Vol
                 <SortIcon field="currentVolume" />
               </th>
-              <th className={`p-3 text-left border-b border-gray-200 font-semibold text-gray-800 ${columnWidths.volumeChange} cursor-pointer hover:bg-gray-200`} 
+              <th className={`p-3 text-left border-b border-gray-200 font-semibold text-gray-800 ${columnWidths.volumeChange} cursor-pointer hover:bg-gray-200`}
                   onClick={() => handleSort('volumeChange')}>
-                Vol Change
+                V Change
                 <SortIcon field="volumeChange" />
               </th>
               <th className={`p-3 text-left border-b border-gray-200 font-semibold text-gray-800 ${columnWidths.volMarketCapRatio} cursor-pointer hover:bg-gray-200`}
                   onClick={() => handleSort('volMarketCapRatio')}>
-                Vol/MCap
+                V/MCap
                 <SortIcon field="volMarketCapRatio" />
+              </th>
+              <th className={`p-3 text-left border-b border-gray-200 font-semibold text-gray-800 ${columnWidths.volAvg10day} cursor-pointer hover:bg-gray-200`}
+                  onClick={() => handleSort('volAvg10day')}>
+                VAVG
+                <SortIcon field="volAvg10day" />
+              </th>
+              <th className={`p-3 text-left border-b border-gray-200 font-semibold text-gray-800 ${columnWidths.volRatioToAvg} cursor-pointer hover:bg-gray-200`}
+                  onClick={() => handleSort('volRatioToAvg')}>
+                V/VAVG
+                <SortIcon field="volRatioToAvg" />
               </th>
               <th className={`p-3 text-center border-b border-gray-200 font-semibold text-gray-800 ${columnWidths.action}`}>Action</th>
             </tr>
@@ -292,6 +307,8 @@ export default function VolumeTable({ alerts }: VolumeTableProps) {
               const priceChangePercent = safeGetChangePercent(data, 'price');
               const volumeChangePercent = safeGetChangePercent(data, 'volume');
               const volumeChangeTimes = volumeChangePercent / 100;
+              const volAvg10day = data.totalVolume ? data.totalVolume.value / ((data.totalVolume.endTime - data.totalVolume.startTime) / 1000 / 180) : 0;
+              const volRatioToAvg = volAvg10day ? data.currentVolume / volAvg10day : 0;
               
               return (
                 <tr key={symbol} className="hover:bg-gray-100">
@@ -312,11 +329,11 @@ export default function VolumeTable({ alerts }: VolumeTableProps) {
                       </div>
                     )}
                   </td>
-                  <td className={`p-3 border-b border-gray-200 font-semibold text-gray-800 ${columnWidths.symbol}`}>
-                    {data.baseAsset}
-                  </td>
-                  <td className={`p-3 border-b border-gray-200 text-gray-700 ${columnWidths.fullName}`}>
-                    {data.fullName || data.baseAsset || '--'}
+                  <td className={`p-3 border-b border-gray-200 ${columnWidths.coinInfo}`}>
+                    <div className="flex flex-col">
+                      <span className="font-semibold text-gray-800">{data.baseAsset}</span>
+                      <span className="text-xs text-gray-500">{data.fullName || data.baseAsset || '--'}</span>
+                    </div>
                   </td>
                   <td className={`p-3 border-b border-gray-200 text-gray-700 ${columnWidths.marketCap}`}>
                     {formatVolume(data.marketCap)}
@@ -338,6 +355,12 @@ export default function VolumeTable({ alerts }: VolumeTableProps) {
                   <td className={`p-3 border-b border-gray-200 text-gray-700 ${columnWidths.volMarketCapRatio}`}>
                     {safeToFixed((data.currentVolume / data.marketCap) * 100, 2)}%
                   </td>
+                  <td className={`p-3 border-b border-gray-200 text-gray-700 ${columnWidths.volAvg10day}`}>
+                    {formatVolume(volAvg10day)}
+                  </td>
+                  <td className={`p-3 border-b border-gray-200  text-green-700 ${columnWidths.volRatioToAvg}`}>
+                    {safeToFixed(volRatioToAvg, 2)}x
+                  </td>
                   <td className={`p-3 text-center border-b border-gray-200 ${columnWidths.action}`}>
                     <a 
                       href={getBinanceTradeLink(symbol)} 
@@ -358,7 +381,7 @@ export default function VolumeTable({ alerts }: VolumeTableProps) {
             
             {sortedAlerts().length === 0 && (
               <tr>
-                <td colSpan={10} className="p-5 text-center text-gray-700">
+                <td colSpan={12} className="p-5 text-center text-gray-700">
                   Không có dữ liệu
                 </td>
               </tr>

@@ -6,6 +6,11 @@ export type CoinData = {
   currentPrice: number;
   currentVolume: number;
   marketCap: number;
+  totalVolume?: {
+    value: number;
+    startTime: number;
+    endTime: number;
+  };
   changes: {
     price: {
       percent: number;

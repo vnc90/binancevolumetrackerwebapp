@@ -1,29 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-
-type CoinData = {
-  symbol: string;
-  baseAsset: string;
-  fullName?: string;
-  logoUrl?: string;
-  currentPrice: number;
-  currentVolume: number;
-  marketCap: number;
-  changes: {
-    price: {
-      percent: number;
-    };
-    volume: {
-      percent: number;
-    };
-  };
-  timestamp: number;
-};
-
-type AlertData = CoinData & {
-  alertTime: number;
-};
+import { CoinData, AlertData } from '../types';
 
 type AlertHistoryProps = {
   alerts: AlertData[];
@@ -119,74 +97,87 @@ export default function AlertHistory({ alerts, openTradingChart }: AlertHistoryP
       ) : (
         <>
           <ul className="space-y-2 pb-1">
-            {alerts.map((alert) => (
-              <li 
-                key={`${alert.symbol}-${alert.alertTime}`} 
-                className="border border-gray-200 rounded-lg p-2.5 bg-white hover:bg-gray-50 shadow-sm"
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <div className="flex items-center">
-                    {alert.logoUrl ? (
-                      <Image 
-                        src={alert.logoUrl} 
-                        alt={alert.symbol} 
-                        width={20} 
-                        height={20} 
-                        className="mr-2 object-contain"
-                      />
-                    ) : (
-                      <div className="flex items-center justify-center h-5 w-5 rounded-full bg-gray-200 text-gray-700 text-xs font-bold mr-2">
-                        {alert.baseAsset ? alert.baseAsset.substring(0, 1) : alert.symbol.substring(0, 1)}
-                      </div>
-                    )}
-                    <span className="font-bold text-gray-800">{alert.baseAsset}</span>
-                  </div>
-                  <span className="text-xs text-gray-700">{formatAlertTime(alert.alertTime)}</span>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div>
-                    <span className="text-gray-700">Giá: </span>
-                    <span className="text-gray-800">{safeToFixed(alert.currentPrice, 8)}</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-700">Thay đổi giá: </span>
-                    <span className={alert.changes.price.percent >= 0 ? 'text-green-700' : 'text-red-700'}>
-                      {alert.changes.price.percent >= 0 ? '+' : ''}
-                      {safeToFixed(alert.changes.price.percent)}%
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-gray-700">Volume: </span>
-                    <span className="text-gray-800">{formatVolume(alert.currentVolume)}</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-700">Thay đổi volume: </span>
-                    <span className="text-green-700">
-                      +{safeToFixed(alert.changes.volume.percent / 100, 2)}x
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-gray-700">Market Cap: </span>
-                    <span className="text-gray-800">{formatVolume(alert.marketCap)}</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-700">Vol/MCap: </span>
-                    <span className="text-gray-800">{safeToFixed((alert.currentVolume / alert.marketCap) * 100, 2)}%</span>
-                  </div>
-                </div>
-                
-                <button
-                  onClick={() => openTradingChart(alert.symbol)}
-                  className="mt-1.5 w-full text-xs bg-[#f0b90b] hover:bg-[#e0aa0b] text-white font-medium py-1.5 px-2 rounded flex items-center justify-center"
+            {alerts.map((alert) => {
+              const volAvg10day = alert.totalVolume ? alert.totalVolume.value / ((alert.totalVolume.endTime - alert.totalVolume.startTime) / 1000 / 180) : 0;
+              const volRatioToAvg = volAvg10day ? alert.currentVolume / volAvg10day : 0;
+              
+              return (
+                <li 
+                  key={`${alert.symbol}-${alert.alertTime}`} 
+                  className="border border-gray-200 rounded-lg p-2.5 bg-white hover:bg-gray-50 shadow-sm"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                  </svg>
-                  Mở biểu đồ
-                </button>
-              </li>
-            ))}
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center">
+                      {alert.logoUrl ? (
+                        <Image 
+                          src={alert.logoUrl} 
+                          alt={alert.symbol} 
+                          width={20} 
+                          height={20} 
+                          className="mr-2 object-contain"
+                        />
+                      ) : (
+                        <div className="flex items-center justify-center h-5 w-5 rounded-full bg-gray-200 text-gray-700 text-xs font-bold mr-2">
+                          {alert.baseAsset ? alert.baseAsset.substring(0, 1) : alert.symbol.substring(0, 1)}
+                        </div>
+                      )}
+                      <span className="font-bold text-gray-800">{alert.baseAsset}</span>
+                    </div>
+                    <span className="text-xs text-gray-700">{formatAlertTime(alert.alertTime)}</span>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                    <div>
+                      <span className="text-gray-700">Giá: </span>
+                      <span className="text-gray-800">{safeToFixed(alert.currentPrice, 8)}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-700">Price Change: </span>
+                      <span className={alert.changes.price.percent >= 0 ? 'text-green-700' : 'text-red-700'}>
+                        {alert.changes.price.percent >= 0 ? '+' : ''}
+                        {safeToFixed(alert.changes.price.percent)}%
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-gray-700">Volume: </span>
+                      <span className="text-gray-800">{formatVolume(alert.currentVolume)}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-700">Vol Change: </span>
+                      <span className="text-green-700">
+                        +{safeToFixed(alert.changes.volume.percent / 100, 2)}x
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-gray-700">Market Cap: </span>
+                      <span className="text-gray-800">{formatVolume(alert.marketCap)}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-700">Vol/MCap: </span>
+                      <span className="text-gray-800">{safeToFixed((alert.currentVolume / alert.marketCap) * 100, 2)}%</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-700">VAVG: </span>
+                      <span className="text-gray-800">{formatVolume(volAvg10day)}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-700">V/VAVG: </span>
+                      <span className="text-green-700">{safeToFixed(volRatioToAvg, 2)}x</span>
+                    </div>
+                  </div>
+                  
+                  <button
+                    onClick={() => openTradingChart(alert.symbol)}
+                    className="mt-1.5 w-full text-xs bg-[#f0b90b] hover:bg-[#e0aa0b] text-white font-medium py-1.5 px-2 rounded flex items-center justify-center"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                    Mở biểu đồ
+                  </button>
+                </li>
+              );
+            })}
           </ul>
         </>
       )}

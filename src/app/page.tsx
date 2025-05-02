@@ -305,11 +305,12 @@ export default function Home() {
   // Hàm xử lý dữ liệu coin mới
   const handleCoinData = useCallback((data: CoinData) => {
     try {
+      console.log("data", data);
       // Kiểm tra dữ liệu trước khi thêm vào state
       if (!isValidCoinData(data)) {
         return;
       }
-      if (data.symbol.includes('USDC') || data.symbol.includes('FDUSD') || data.symbol.includes('TUSD') || data.symbol.includes('WBTC')) {
+      if (data.symbol.includes('USDC') || data.symbol.includes('FDUSD') || data.symbol.includes('TUSD') || data.symbol.includes('WBTC') || data.symbol.includes('USDP')) {
         return;
       }
       // Đảm bảo timestamp luôn được cập nhật thành thời gian hiện tại
