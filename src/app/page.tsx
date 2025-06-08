@@ -12,13 +12,13 @@ type AlertTimeMap = {
 
 // Thời gian tối thiểu giữa các cảnh báo cho cùng một coin (60 giây)
 const MIN_ALERT_INTERVAL = 60 * 1000;
-// Thời gian để dữ liệu hết hạn (3 phút - đồng bộ với đồng hồ đếm ngược)
-const DATA_EXPIRY_TIME = 180 * 1000;
+// Thời gian để dữ liệu hết hạn (15 phút - đồng bộ với đồng hồ đếm ngược)
+const DATA_EXPIRY_TIME = 900 * 1000;
 
 export default function Home() {
   const [status, setStatus] = useState<'connected' | 'disconnected'>('disconnected');
   const [lastUpdate, setLastUpdate] = useState<string>('Chưa có dữ liệu');
-  const [nextUpdateCountdown, setNextUpdateCountdown] = useState<number>(180); // 3 phút = 180 giây
+  const [nextUpdateCountdown, setNextUpdateCountdown] = useState<number>(900); // 15 phút = 900 giây
   const [alerts, setAlerts] = useState<Map<string, CoinData>>(new Map());
   const [minVolume, setMinVolume] = useState<number>(10000);
   const [alertThreshold, setAlertThreshold] = useState<number>(2.5);
@@ -71,8 +71,8 @@ export default function Home() {
       return;
     }
 
-    // Reset countdown về 180 giây (3 phút) khi có cập nhật mới
-    setNextUpdateCountdown(180);
+    // Reset countdown về 900 giây (15 phút) khi có cập nhật mới
+    setNextUpdateCountdown(900);
     
     // Tạo interval để giảm countdown mỗi giây
     const intervalId = setInterval(() => {
@@ -92,7 +92,7 @@ export default function Home() {
     const now = new Date();
     setLastUpdate(now.toLocaleTimeString());
     // Reset đồng hồ đếm ngược
-    setNextUpdateCountdown(180);
+    setNextUpdateCountdown(900);
     
     // Gọi hàm làm sạch dữ liệu khi có cập nhật mới
     cleanupExpiredData();
@@ -310,7 +310,7 @@ export default function Home() {
       if (!isValidCoinData(data)) {
         return;
       }
-      if (data.symbol.includes('USDC') || data.symbol.includes('FDUSD') || data.symbol.includes('TUSD') || data.symbol.includes('WBTC') || data.symbol.includes('USDP')) {
+      if (data.symbol.includes('USDC') || data.symbol.includes('FDUSD') || data.symbol.includes('TUSD') || data.symbol.includes('WBTC') || data.symbol.includes('USDP') || data.symbol.includes('USD1')) {
         return;
       }
       // Đảm bảo timestamp luôn được cập nhật thành thời gian hiện tại

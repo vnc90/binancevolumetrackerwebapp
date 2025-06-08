@@ -153,9 +153,9 @@ export default function VolumeTable({ alerts }: VolumeTableProps) {
         case 'volMarketCapRatio':
           return data.marketCap ? (data.currentVolume / data.marketCap) * 100 : 0;
         case 'volAvg10day':
-          return data.totalVolume ? data.totalVolume.value / ((data.totalVolume.endTime - data.totalVolume.startTime) / 1000 / 180) : 0;
+          return data.totalVolume ? data.totalVolume.value / ((data.totalVolume.endTime - data.totalVolume.startTime) / 1000 / 900) : 0;
         case 'volRatioToAvg':
-          const avgVol = data.totalVolume ? data.totalVolume.value / ((data.totalVolume.endTime - data.totalVolume.startTime) / 1000 / 180) : 0;
+          const avgVol = data.totalVolume ? data.totalVolume.value / ((data.totalVolume.endTime - data.totalVolume.startTime) / 1000 / 900) : 0;
           return avgVol ? data.currentVolume / avgVol : 0;
         default:
           return 0;
@@ -307,7 +307,7 @@ export default function VolumeTable({ alerts }: VolumeTableProps) {
               const priceChangePercent = safeGetChangePercent(data, 'price');
               const volumeChangePercent = safeGetChangePercent(data, 'volume');
               const volumeChangeTimes = volumeChangePercent / 100;
-              const volAvg10day = data.totalVolume ? data.totalVolume.value / ((data.totalVolume.endTime - data.totalVolume.startTime) / 1000 / 180) : 0;
+              const volAvg10day = data.totalVolume ? data.totalVolume.value / ((data.totalVolume.endTime - data.totalVolume.startTime) / 1000 / 900) : 0;
               const volRatioToAvg = volAvg10day ? data.currentVolume / volAvg10day : 0;
               
               return (
